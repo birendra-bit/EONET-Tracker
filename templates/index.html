@@ -300,30 +300,28 @@
                     <div id="magnitudeValues" style="text-align: center; margin-top: 5px;"></div>
                 </div>
             </div>
-            <!-- <div class="button-container">
-                <button onclick="refreshData()" class="btn btn-primary">
-                    <i class="fas fa-sync-alt"></i> Refresh Data
-                </button>
-                <a href="/trends" class="btn btn-primary">
-                    <i class="fas fa-chart-line"></i> View Time Series
-                </a>
-            </div> -->
         </div>
 
         <!-- Map -->
         <div class="map-container">
             {{ map_html|safe }}
         </div>
-        <div class="map-legend">
-            <h4>Event Intensity</h4>
-            <div class="legend-item">
-                <span style="color: #FFEB3B">●</span> Low (0-3)
-            </div>
-            <div class="legend-item">
-                <span style="color: #FF9800">●</span> Medium (3-6)
-            </div>
-            <div class="legend-item">
-                <span style="color: #F44336">●</span> High (6+)
+        <div class="map-container">
+            <!-- The map content -->
+            {{ map_html|safe }}
+            
+            <!-- The legend overlay -->
+            <div class="map-legend">
+                <h4>Event Intensity</h4>
+                <div class="legend-item">
+                    <span style="color: #FFEB3B">●</span> Low (0-3)
+                </div>
+                <div class="legend-item">
+                    <span style="color: #FF9800">●</span> Medium (3-6)
+                </div>
+                <div class="legend-item">
+                    <span style="color: #F44336">●</span> High (6+)
+                </div>
             </div>
         </div>
 
