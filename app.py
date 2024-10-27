@@ -5,7 +5,7 @@ import folium
 from folium import plugins
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import branca.colormap as cm
 from threading import Lock
@@ -51,7 +51,7 @@ class EONETData:
     def fetch_events(self, days=365):
         """Fetch events from EONET API"""
         try:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=days)
 
             params = {
@@ -331,77 +331,154 @@ class EONETData:
             'min': min(counts) if counts else 0
         }
 
+   
     #ANALYSIS
     def get_analysis_data(self, period=30):
-        """Get analysis data from cached events"""
-        events = self.get_filtered_events(start_date=(datetime.now() - timedelta(days=period)).strftime('%Y-%m-%d'))
-
-        # Initialize analysis containers
-        timeline_data = {}
-        category_data = {}
-        geographic_data = {}
-        severity_data = []
-        weekday_trend = {
-            'Sunday': 0,
-            'Monday': 0,
-            'Tuesday': 0,
-            'Wednesday': 0,
-            'Thursday': 0,
-            'Friday': 0,
-            'Saturday': 0
-        }
-
-        for event in events.get('events', []):
-            # Get event date
-            date = event['geometry'][0]['date'][:10]
-            timeline_data[date] = timeline_data.get(date, 0) + 1
-
-            # Get category
-            category = event['categories'][0]['title']
-            category_data[category] = category_data.get(category, 0) + 1
-
-            # Get geographic region
-            if event['geometry']:
-                coords = event['geometry'][0]['coordinates']
-                lat = coords[1]
-                region = self.get_region_name(lat)
-                geographic_data[region] = geographic_data.get(region, 0) + 1
-
-            # Get severity if available
-            for geometry_item in event['geometry']:
-                if 'date' in geometry_item:
-                    date_obj = datetime.strptime(geometry_item['date'][:10], '%Y-%m-%d')
-                    weekday = date_obj.strftime('%A')
-                    weekday_trend[weekday] += 1
-                if 'magnitudeValue' in geometry_item:
-                    if geometry_item.get('magnitudeValue') is not None:
-                        severity_data.append({
-                            'date': date,
-                            'value': float(geometry_item['magnitudeValue']),
-                            'category': category
-                        })
-
-        return {
-            'trends': {
-                'labels': sorted(timeline_data.keys()),
-                'values': [timeline_data[k] for k in sorted(timeline_data.keys())]
-            },
-            'categories': {
-                'labels': list(category_data.keys()),
-                'values': list(category_data.values())
-            },
-            'geographic': geographic_data,
-            'weekday': {
-                'labels': list(weekday_trend.keys()),
-                'values': list(weekday_trend.values())
-            },
-            'severity': {
-                'labels': [d['date'] for d in severity_data],
-                'values': [d['value'] for d in severity_data],
-                'categories': [d['category'] for d in severity_data]
+        """Get comprehensive analysis data"""
+        try:
+            # Calculate date range
+            end_date = datetime.now(timezone.utc)
+            start_date = (end_date - timedelta(days=int(period))).strftime('%Y-%m-%d')
+            
+            # Get filtered events
+            events = self.get_filtered_events(start_date=start_date)
+            print(f"Total events fetched: {len(events.get('events', []))}")  # Debug log
+            
+            data = {
+                'trends': {'labels': [], 'values': []},
+                'categories': {'labels': [], 'values': []},
+                'geographic': {},
+                'severity': {
+                    'wildfires': [],
+                    'storms': [],
+                    'volcanoes': [],
+                    'earthquakes': []
+                },
+                'weekday': {
+                    'labels': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                    'values': [0] * 7
+                }
             }
-        }
+            
+            category_counts = {}
+            dates_count = {}
+            
+            # Debug counters
+            severity_counts = {
+                'wildfires': 0,
+                'storms': 0,
+                'volcanoes': 0,
+                'earthquakes': 0
+            }
 
+            for event in events.get('events', []):
+                try:
+                    date = event['geometry'][0]['date'][:10]
+                    categories = [cat['title'] for cat in event['categories']]
+                    
+                    # Process basic counts
+                    for category in categories:
+                        category_counts[category] = category_counts.get(category, 0) + 1
+                    dates_count[date] = dates_count.get(date, 0) + 1
+
+                    # Geographic and weekday processing
+                    if event['geometry']:
+                        coords = event['geometry'][0]['coordinates']
+                        region = self.get_region_name(coords[1])
+                        data['geographic'][region] = data['geographic'].get(region, 0) + 1
+                        
+                        weekday = datetime.strptime(date, '%Y-%m-%d').weekday()
+                        data['weekday']['values'][weekday] += 1
+
+                    # Process magnitude/severity
+                    magnitude_value = None
+                    magnitude_unit = None
+
+                    # Check for magnitude in event root
+                    if 'magnitudeValue' in event:
+                        magnitude_value = event['magnitudeValue']
+                        magnitude_unit = event.get('magnitudeUnit', '')
+                    
+                    # Check for magnitude in geometries
+                    if not magnitude_value and event.get('geometry'):
+                        for geo in event['geometry']:
+                            if 'magnitudeValue' in geo:
+                                magnitude_value = geo['magnitudeValue']
+                                magnitude_unit = geo.get('magnitudeUnit', '')
+                                break
+
+                    # Debug print
+                    print(f"Event: {event.get('title')} - Categories: {categories}")
+                    print(f"Magnitude: {magnitude_value}, Unit: {magnitude_unit}")
+
+                    if magnitude_value is not None:
+                        try:
+                            magnitude_value = float(magnitude_value)
+                            event_data = {
+                                'date': date,
+                                'magnitude': magnitude_value,
+                                'unit': magnitude_unit,
+                                'title': event.get('title', ''),
+                                'description': event.get('description', '')
+                            }
+
+                            # Categorize based on event categories
+                            if any('Wildfires' in cat for cat in categories):
+                                data['severity']['wildfires'].append(event_data)
+                                severity_counts['wildfires'] += 1
+                                
+                            elif any(storm_type in cat for cat in categories 
+                                for storm_type in ['Severe Storms', 'Tropical Cyclones']):
+                                data['severity']['storms'].append(event_data)
+                                severity_counts['storms'] += 1
+                                
+                            elif any('Volcanoes' in cat for cat in categories):
+                                data['severity']['volcanoes'].append(event_data)
+                                severity_counts['volcanoes'] += 1
+                                
+                            elif any('Earthquakes' in cat for cat in categories):
+                                data['severity']['earthquakes'].append(event_data)
+                                severity_counts['earthquakes'] += 1
+
+                        except (ValueError, TypeError) as e:
+                            print(f"Error converting magnitude value: {e}")
+                            continue
+
+                except Exception as e:
+                    print(f"Error processing event: {e}")
+                    continue
+
+            # Debug print severity counts
+            print("Severity counts:", severity_counts)
+
+            # Sort and prepare trend data
+            sorted_dates = sorted(dates_count.keys())
+            data['trends']['labels'] = sorted_dates
+            data['trends']['values'] = [dates_count[date] for date in sorted_dates]
+
+            # Prepare category data
+            data['categories']['labels'] = list(category_counts.keys())
+            data['categories']['values'] = list(category_counts.values())
+
+            return data
+
+        except Exception as e:
+            print(f"Error in analysis data: {e}")
+            return {
+                'trends': {'labels': [], 'values': []},
+                'categories': {'labels': [], 'values': []},
+                'geographic': {},
+                'severity': {
+                    'wildfires': [],
+                    'storms': [],
+                    'volcanoes': [],
+                    'earthquakes': []
+                },
+                'weekday': {
+                    'labels': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                    'values': [0] * 7
+                }
+            }
     def convert_acres_to_nm2(self, acres):
         """Convert acres to square kilometers"""
         return acres * 0.00404686
@@ -482,7 +559,7 @@ def analysis():
 @app.route('/api/analysis/data')
 def get_analysis_data():
     """Get all analysis data"""
-    period = request.args.get('period',30)
+    period = request.args.get('period',365)
     data = eonet_data.get_analysis_data(period=int(period))
     return jsonify(data)
 

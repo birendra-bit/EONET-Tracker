@@ -79,8 +79,6 @@
                     <option value="90">Last 90 Days</option>
                     <option value="180">Last 180 Days</option>
                     <option value="365">Last 1 Year</option>
-                    <option value="730">Last 2 Year</option>
-                    <option value="1095">Last 3 Years</option>
                 </select>
             </div>
             <a href="/" class="btn btn-primary" onclick="event.preventDefault(); window.history.back();">
@@ -219,13 +217,35 @@
             // Severity Chart
             const sevCtx = document.getElementById('severityChart').getContext('2d');
             charts.severity = new Chart(sevCtx, {
-                type: 'scatter',
+                type: 'bar',
                 data: {
-                    datasets: [{
-                        label: 'Event Severity',
-                        data: [],
-                        backgroundColor: '#FF6384'
-                    }]
+                    labels: ['Low', 'Medium', 'High'],
+                    datasets: [
+                        {
+                            label: 'Wildfires',
+                            backgroundColor: '#FF6384',
+                            data: [0, 0, 0],
+                            stack: 'Stack 0'
+                        },
+                        {
+                            label: 'Storms',
+                            backgroundColor: '#36A2EB',
+                            data: [0, 0, 0],
+                            stack: 'Stack 0'
+                        },
+                        {
+                            label: 'Volcanoes',
+                            backgroundColor: '#FFCE56',
+                            data: [0, 0, 0],
+                            stack: 'Stack 0'
+                        },
+                        {
+                            label: 'Earthquakes',
+                            backgroundColor: '#4BC0C0',
+                            data: [0, 0, 0],
+                            stack: 'Stack 0'
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -233,28 +253,30 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Event Severity'
+                            text: 'Event Severity Distribution by Type'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} events`;
+                                }
+                            }
                         }
                     },
                     scales: {
                         x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                tooltipFormat: 'll',
-                                displayFormats: {
-                                    day: 'yyyy/MM/dd'
-                                }
-                            },
+                            stacked: true,
                             title: {
                                 display: true,
-                                text: 'Date'
+                                text: 'Severity Level'
                             }
                         },
                         y: {
+                            stacked: true,
+                            beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Magnitude'
+                                text: 'Number of Events'
                             }
                         }
                     }
@@ -265,7 +287,7 @@
         async function updateCharts() {
             const data = await fetchData();
 
-            console.log(data);
+            console.log('Received data:', data); // Debug log
 
             // Update Trends Chart
             charts.trends.data.labels = data.trends.labels;
@@ -283,18 +305,67 @@
             charts.geographic.update();
 
              // Update Severity Chart
-            charts.severity.data.datasets[0].data = data.severity.labels.map((label, index) => {
-                return {
-                    x: new Date(label),
-                    y: data.severity.values[index]
-                };
+            // Update Severity Chart with multiple datasets
+            const severityCategories = {
+                wildfires: { low: 0, medium: 0, high: 0 },
+                storms: { low: 0, medium: 0, high: 0 },
+                volcanoes: { low: 0, medium: 0, high: 0 },
+                earthquakes: { low: 0, medium: 0, high: 0 }
+            };
+            // Process each event type
+        Object.entries(data.severity).forEach(([eventType, events]) => {
+            events.forEach(event => {
+                const mag = parseFloat(event.magnitude);
+                let level;
+                
+                // Categorize based on event type
+                switch(eventType) {
+                    case 'wildfires':
+                        level = mag < 100 ? 'low' : mag < 500 ? 'medium' : 'high';
+                        break;
+                    case 'storms':
+                        level = mag < 34 ? 'low' : mag < 64 ? 'medium' : 'high'; // Knots
+                        break;
+                    case 'volcanoes':
+                        level = mag < 2 ? 'low' : mag < 4 ? 'medium' : 'high'; // VEI
+                        break;
+                    case 'earthquakes':
+                        level = mag < 4 ? 'low' : mag < 6 ? 'medium' : 'high'; // Richter
+                        break;
+                    default:
+                        level = 'low';
+                }
+                severityCategories[eventType][level]++;
             });
-            charts.severity.update();
+        });
 
             // Update Weekday Chart
             charts.weekday.data.labels = data.weekday.labels;
             charts.weekday.data.datasets[0].data = data.weekday.values;
             charts.weekday.update();
+
+            charts.severity.data.datasets[0].data = [
+            severityCategories.wildfires.low,
+            severityCategories.wildfires.medium,
+            severityCategories.wildfires.high
+        ];
+        charts.severity.data.datasets[1].data = [
+            severityCategories.storms.low,
+            severityCategories.storms.medium,
+            severityCategories.storms.high
+        ];
+        charts.severity.data.datasets[2].data = [
+            severityCategories.volcanoes.low,
+            severityCategories.volcanoes.medium,
+            severityCategories.volcanoes.high
+        ];
+        charts.severity.data.datasets[3].data = [
+            severityCategories.earthquakes.low,
+            severityCategories.earthquakes.medium,
+            severityCategories.earthquakes.high
+        ];
+
+        charts.severity.update();
         }
 
         // Initialize
