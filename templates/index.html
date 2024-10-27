@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -156,26 +155,36 @@
             height: 20px;
         }
 
-        /* Map */
+        /* Map and Legend */
+        .map-wrapper {
+            position: relative;
+            height: 900px;
+            margin-bottom: 20px;
+        }
+
         .map-container {
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            height: 100%;
             position: relative;
-            height: 900px;
+            z-index: 0;
         }
 
         .map-legend {
             position: absolute;
-            bottom: 20px;
-            right: 100px;
+            top: 100px;
+            right: 20px;
+            width: 100px;
+            height:150px;
             background: white;
             padding: 10px;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             font-size: 0.9rem;
+            z-index: 1;
+            opacity: 0.8;
         }
 
         /* Buttons */
@@ -229,6 +238,16 @@
 
             .stat-card {
                 height: 250px;
+            }
+
+            .map-wrapper {
+                height: 500px;
+            }
+
+            .map-legend {
+                top: 10px;
+                left: 10px;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -302,29 +321,25 @@
             </div>
         </div>
 
-        <!-- Map -->
-        <div class="map-container">
-            {{ map_html|safe }}
-        </div>
-        <div class="map-container">
-            <!-- The map content -->
-            {{ map_html|safe }}
-            
-            <!-- The legend overlay -->
+        <!-- Map and Legend -->
+        <div class="map-wrapper">
+            <div class="map-container">
+                <!-- The map content -->
+                {{ map_html|safe }}
+            </div>
             <div class="map-legend">
                 <h4>Event Intensity</h4>
                 <div class="legend-item">
-                    <span style="color: #FFEB3B">●</span> Low (0-3)
+                    <span style="color: #FFEB3B">●</span> Low (0-1.5)
                 </div>
                 <div class="legend-item">
-                    <span style="color: #FF9800">●</span> Medium (3-6)
+                    <span style="color: #FF9800">●</span> Medium (1.5-5)
                 </div>
                 <div class="legend-item">
-                    <span style="color: #F44336">●</span> High (6+)
+                    <span style="color: #F44336">●</span> High (5.0+)
                 </div>
             </div>
         </div>
-
     </div>
 
     <!-- External Scripts -->
@@ -334,13 +349,5 @@
     <!-- Custom Scripts -->
     <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
-    <script>
-        // Initialize charts and map
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeCharts();
-            initializeSlider();
-            loadCategories();
-        });
-    </script>
 </body>
 </html>

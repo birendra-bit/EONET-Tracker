@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Set default date range
         const endDate = new Date();
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);  // Last 30 days
+        startDate.setDate(startDate.getDate() - 365);  // Last 30 days
 
         document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
         document.getElementById('startDate').value = startDate.toISOString().split('T')[0];

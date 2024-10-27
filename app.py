@@ -143,7 +143,7 @@ class EONETData:
         m = folium.Map(
             location=[20, 0],
             zoom_start=3,
-            tiles='CartoDB positron',
+            tiles='OpenStreetMap',
             prefer_canvas=True
         )
 
